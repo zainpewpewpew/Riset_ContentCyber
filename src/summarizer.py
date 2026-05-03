@@ -19,22 +19,60 @@ Aturan:
 - Jangan gunakan emoji"""
 
 
-def _get_api_key() -> str:
-    key = os.environ.get("OPENAI_API_KEY", "")
-    if not key:
-        raise ValueError("OPENAI_API_KEY environment variable is required")
-    return key
+def _get_api_keys() -> list[str]:
+    """Collect all available API keys from environment variables.
+
+    Reads OPENAI_API_KEY, OPENAI_API_KEY_2, OPENAI_API_KEY_3, etc.
+    """
+    keys = []
+
+    primary = os.environ.get("OPENAI_API_KEY", "").strip()
+    if primary:
+        keys.append(primary)
+
+    for i in range(2, 10):
+        key = os.environ.get(f"OPENAI_API_KEY_{i}", "").strip()
+        if key:
+            keys.append(key)
+
+    return keys
+
+
+def _call_openai(api_key: str, user_prompt: str) -> str:
+    """Make a single OpenAI API call. Raises on failure."""
+    response = requests.post(
+        OPENAI_API_URL,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": 300,
+            "temperature": 0.5,
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data["choices"][0]["message"]["content"].strip()
 
 
 def summarize_article(title: str, content: str, source: str) -> str:
     """Summarize an article using OpenAI ChatGPT API.
 
-    Returns the AI-generated summary, or falls back to truncated content on error.
+    Tries multiple API keys in sequence. If key 1 fails (rate limit,
+    quota exceeded, etc.), automatically tries key 2, then key 3, etc.
+    Falls back to truncated content if all keys fail.
     """
-    try:
-        api_key = _get_api_key()
-    except ValueError:
-        logger.warning("OPENAI_API_KEY not set, using raw content as summary")
+    api_keys = _get_api_keys()
+
+    if not api_keys:
+        logger.warning("No OPENAI_API_KEY set, using raw content as summary")
         return _fallback_summary(content)
 
     user_prompt = (
@@ -43,34 +81,30 @@ def summarize_article(title: str, content: str, source: str) -> str:
         f"Konten:\n{content[:3000]}"
     )
 
-    try:
-        response = requests.post(
-            OPENAI_API_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": 300,
-                "temperature": 0.5,
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
+    for i, key in enumerate(api_keys, start=1):
+        try:
+            summary = _call_openai(key, user_prompt)
+            logger.info("Summarized with key #%d: %s", i, title[:60])
+            return summary
 
-        data = response.json()
-        summary = data["choices"][0]["message"]["content"].strip()
-        logger.info("Summarized: %s", title[:60])
-        return summary
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "unknown"
+            logger.warning(
+                "Key #%d failed (HTTP %s) for '%s': %s",
+                i, status, title[:60], e,
+            )
+            if i < len(api_keys):
+                logger.info("Trying next API key (#%d)...", i + 1)
+            continue
 
-    except Exception as e:
-        logger.error("Failed to summarize '%s': %s", title[:60], e)
-        return _fallback_summary(content)
+        except Exception as e:
+            logger.warning("Key #%d error for '%s': %s", i, title[:60], e)
+            if i < len(api_keys):
+                logger.info("Trying next API key (#%d)...", i + 1)
+            continue
+
+    logger.error("All %d API keys failed for '%s', using fallback", len(api_keys), title[:60])
+    return _fallback_summary(content)
 
 
 def _fallback_summary(content: str) -> str:
