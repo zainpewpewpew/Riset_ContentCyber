@@ -53,3 +53,18 @@ def format_batch_summary(articles: list[dict]) -> str:
         f"{', '.join(sources)}.\n\n"
         f"Berikut ringkasan yang relevan untuk Yakes Telkom:"
     )
+
+
+def format_no_news() -> str:
+    """Format message when no new articles are found in the last week."""
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%d %B %Y")
+
+    return (
+        f"*[Yakes Telkom - Cyber Security Update]*\n\n"
+        f"_Tanggal:_ {today}\n\n"
+        f"Tidak ditemukan berita cyber security baru dalam 7 hari terakhir.\n\n"
+        f"Ini bisa berarti situasi keamanan siber relatif stabil. "
+        f"Namun tetap waspada dan pastikan sistem Yakes Telkom selalu "
+        f"ter-update dengan patch keamanan terbaru."
+    )

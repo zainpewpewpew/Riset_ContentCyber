@@ -175,43 +175,23 @@ def fetch_all_feeds(config_path: Path = CONFIG_PATH) -> list[dict]:
     return all_articles
 
 
-def filter_by_date(articles: list[dict], fallback_days: int = 3) -> list[dict]:
-    """Filter articles: prefer today's articles, fallback to last N days.
+def filter_by_date(articles: list[dict], max_days: int = 7) -> list[dict]:
+    """Filter articles from the last `max_days` days (default: 1 week).
 
-    1. First, try to get articles from today
-    2. If none found today, get articles from the last `fallback_days` days
-    3. Articles without a parseable date are always included
+    Articles without a parseable date are always included.
+    Sorted from newest to oldest.
     """
     from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    fallback_start = now - timedelta(days=fallback_days)
+    cutoff = now - timedelta(days=max_days)
 
-    today_articles = []
-    recent_articles = []
-    no_date_articles = []
-
+    result = []
     for article in articles:
         dt = article.get("published_dt")
-        if dt is None:
-            no_date_articles.append(article)
-            continue
+        if dt is None or dt >= cutoff:
+            result.append(article)
 
-        if dt >= today_start:
-            today_articles.append(article)
-        elif dt >= fallback_start:
-            recent_articles.append(article)
-
-    if today_articles:
-        result = today_articles + no_date_articles
-        logger.info("Found %d articles from today", len(today_articles))
-    else:
-        result = recent_articles + no_date_articles
-        logger.info(
-            "No articles from today, using %d articles from last %d days",
-            len(recent_articles), fallback_days,
-        )
-
+    logger.info("Found %d articles from last %d days", len(result), max_days)
     result.sort(key=lambda a: a.get("published_dt") or now, reverse=True)
     return result

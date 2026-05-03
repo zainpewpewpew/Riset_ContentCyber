@@ -2,7 +2,7 @@ import logging
 import sys
 
 from feed_fetcher import fetch_all_feeds, filter_by_date
-from message_formatter import format_article, format_batch_summary
+from message_formatter import format_article, format_batch_summary, format_no_news
 from state_manager import filter_new_articles, load_sent_articles, save_sent_articles
 from summarizer import summarize_article
 from whatsapp_sender import send_to_all_recipients, send_text_to_all
@@ -22,22 +22,18 @@ def main():
 
     # 1. Fetch all RSS feeds
     all_articles = fetch_all_feeds()
-    if not all_articles:
-        logger.info("No articles fetched from any feed. Exiting.")
-        return
 
-    # 2. Filter by date: today's articles, or last 3 days if none today
-    all_articles = filter_by_date(all_articles, fallback_days=3)
-    if not all_articles:
-        logger.info("No recent articles found. Exiting.")
-        return
+    # 2. Filter by date: last 7 days
+    if all_articles:
+        all_articles = filter_by_date(all_articles, max_days=7)
 
     # 3. Filter out already-sent articles
     sent_urls = load_sent_articles()
-    new_articles = filter_new_articles(all_articles, sent_urls)
+    new_articles = filter_new_articles(all_articles, sent_urls) if all_articles else []
 
     if not new_articles:
-        logger.info("No new articles found. Exiting.")
+        logger.info("No new articles found in the last 7 days.")
+        send_text_to_all(format_no_news())
         return
 
     # 4. Limit articles per run to avoid spam
