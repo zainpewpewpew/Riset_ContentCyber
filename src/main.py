@@ -1,5 +1,6 @@
 import logging
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 from feed_fetcher import fetch_all_feeds, filter_by_date, filter_by_topic
@@ -21,7 +22,82 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MAX_ARTICLES_PER_RUN = 3
+MAX_ARTICLES_PER_RUN = 1
+MAX_ARTICLES_PER_DAY = 3
+
+
+def _get_today_send_count() -> tuple[int, str]:
+    """Check how many articles have been sent today using a temp marker file."""
+    from pathlib import Path
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    marker = Path(tempfile.gettempdir()) / "cybersec_daily_count.txt"
+
+    try:
+        if marker.exists():
+            data = marker.read_text().strip().split("\n")
+            if data and data[0] == today_str:
+                return len(data) - 1, today_str
+    except Exception:
+        pass
+
+    return 0, today_str
+
+
+def _record_today_send(source: str) -> None:
+    """Record that we sent an article today."""
+    from pathlib import Path
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    marker = Path(tempfile.gettempdir()) / "cybersec_daily_count.txt"
+
+    try:
+        lines = []
+        if marker.exists():
+            lines = marker.read_text().strip().split("\n")
+            if not lines or lines[0] != today_str:
+                lines = [today_str]
+        else:
+            lines = [today_str]
+        lines.append(source)
+        marker.write_text("\n".join(lines))
+    except Exception:
+        pass
+
+
+def _pick_diverse_article(articles: list[dict], sent_urls: set[str]) -> list[dict]:
+    """Pick 1 article from a source that hasn't been used today yet.
+
+    Ensures each of the 3 daily sends comes from a different source.
+    """
+    from pathlib import Path
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    marker = Path(tempfile.gettempdir()) / "cybersec_daily_count.txt"
+
+    today_sources = set()
+    send_count = 0
+    try:
+        if marker.exists():
+            lines = marker.read_text().strip().split("\n")
+            if lines and lines[0] == today_str:
+                today_sources = set(lines[1:])
+                send_count = len(today_sources)
+    except Exception:
+        pass
+
+    if send_count >= MAX_ARTICLES_PER_DAY:
+        logger.info("Already sent %d articles today (max %d), skipping", send_count, MAX_ARTICLES_PER_DAY)
+        return []
+
+    for article in articles:
+        source = article.get("source", "")
+        if source not in today_sources:
+            logger.info("Selected article from '%s' (today: %d/%d sent)", source, send_count + 1, MAX_ARTICLES_PER_DAY)
+            return [article]
+
+    if articles:
+        logger.info("All sources used today, picking newest article")
+        return [articles[0]]
+
+    return []
 
 
 def main():
@@ -81,13 +157,12 @@ def main():
             logger.error("Failed to send 'no news' notification: %s", e)
         return
 
-    # --- STEP 4: Limit articles per run ---
-    if len(new_articles) > MAX_ARTICLES_PER_RUN:
-        logger.info(
-            "Limiting from %d to %d articles per run",
-            len(new_articles), MAX_ARTICLES_PER_RUN,
-        )
-        new_articles = new_articles[:MAX_ARTICLES_PER_RUN]
+    # --- STEP 4: Pick 1 article, rotating sources ---
+    new_articles = _pick_diverse_article(new_articles, sent_urls)
+
+    if not new_articles:
+        logger.info("Daily limit reached or no suitable article. Exiting.")
+        return
 
     # --- STEP 5: Summarize with AI ---
     logger.info("Summarizing %d articles with ChatGPT...", len(new_articles))
@@ -158,10 +233,12 @@ def main():
         errors.append(f"Gagal mengirim artikel ke WhatsApp: {e}")
         stats = {"sent": 0, "failed": len(new_articles)}
 
-    # --- STEP 10: Save state ---
+    # --- STEP 10: Save state + record daily send ---
     try:
         for article in new_articles:
             sent_urls.add(article["link"])
+            if stats["sent"] > 0:
+                _record_today_send(article.get("source", "unknown"))
         save_sent_articles(sent_urls)
     except Exception as e:
         logger.error("Failed to save sent articles state: %s", e)

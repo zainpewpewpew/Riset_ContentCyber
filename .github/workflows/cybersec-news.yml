@@ -2,7 +2,9 @@ name: Cyber Security News Bot
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 0 * * *'
+    - cron: '0 5 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch:
 
 permissions:
