@@ -31,6 +31,7 @@ jobs:
           GREEN_API_INSTANCE_ID: ${{ secrets.GREEN_API_INSTANCE_ID }}
           GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
           WA_RECIPIENTS: ${{ secrets.WA_RECIPIENTS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python main.py
 
       - name: Commit updated state

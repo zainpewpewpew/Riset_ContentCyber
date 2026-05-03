@@ -4,6 +4,7 @@ import sys
 from feed_fetcher import fetch_all_feeds
 from message_formatter import format_article, format_batch_summary
 from state_manager import filter_new_articles, load_sent_articles, save_sent_articles
+from summarizer import summarize_article
 from whatsapp_sender import send_to_all_recipients, send_text_to_all
 
 logging.basicConfig(
@@ -13,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MAX_ARTICLES_PER_RUN = 10
+MAX_ARTICLES_PER_RUN = 3
 
 
 def main():
@@ -41,20 +42,30 @@ def main():
         )
         new_articles = new_articles[:MAX_ARTICLES_PER_RUN]
 
-    # 4. Format captions
+    # 4. Summarize articles with AI
+    logger.info("Summarizing %d articles with ChatGPT...", len(new_articles))
+    for article in new_articles:
+        ai_summary = summarize_article(
+            title=article["title"],
+            content=article.get("summary", ""),
+            source=article["source"],
+        )
+        article["summary"] = ai_summary
+
+    # 5. Format captions
     captions = [format_article(article) for article in new_articles]
 
     logger.info("Sending %d new articles to WhatsApp...", len(new_articles))
 
-    # 5. Send batch summary first (if multiple articles)
+    # 6. Send batch summary first (if multiple articles)
     if len(new_articles) > 1:
         summary = format_batch_summary(new_articles)
         send_text_to_all(summary)
 
-    # 6. Send each article
+    # 7. Send each article
     stats = send_to_all_recipients(new_articles, captions)
 
-    # 7. Mark articles as sent (even if some sends failed, to avoid retry loops)
+    # 8. Mark articles as sent (even if some sends failed, to avoid retry loops)
     for article in new_articles:
         sent_urls.add(article["link"])
     save_sent_articles(sent_urls)
