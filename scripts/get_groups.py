@@ -2,18 +2,15 @@
 
 Run this locally (not in GitHub Actions) to find your group IDs:
 
-    export GREEN_API_INSTANCE_ID="your_instance_id"
-    export GREEN_API_TOKEN="your_api_token"
+    $env:GREEN_API_INSTANCE_ID = "your_instance_id"
+    $env:GREEN_API_TOKEN = "your_api_token"
     python scripts/get_groups.py
-
-The output will show all groups with their IDs. Use these IDs
-in the WA_RECIPIENTS secret.
 """
 
 import os
 import sys
 
-from whatsapp_api_client_python import API
+import requests
 
 
 def main():
@@ -32,22 +29,20 @@ def main():
         print('    export GREEN_API_TOKEN="your_api_token"')
         sys.exit(1)
 
-    client = API.GreenAPI(instance_id, api_token)
-
     print("Fetching groups...\n")
 
+    url = f"https://api.green-api.com/waInstance{instance_id}/getChats/{api_token}"
+
     try:
-        response = client.groups.getGroups()
+        response = requests.get(url)
+        response.raise_for_status()
+        chats = response.json()
     except Exception as e:
         print(f"ERROR: {e}")
         sys.exit(1)
 
-    if response.code != 200:
-        print(f"ERROR: API returned status {response.code}")
-        print(response.data)
-        sys.exit(1)
+    groups = [c for c in chats if c.get("id", "").endswith("@g.us")]
 
-    groups = response.data
     if not groups:
         print("No groups found on this WhatsApp account.")
         return
@@ -58,8 +53,9 @@ def main():
 
     for group in groups:
         group_id = group.get("id", "N/A")
-        group_name = group.get("name", group.get("subject", "N/A"))
-        print(f"{group_id:<45} {group_name}")
+        group_name = group.get("name", "N/A")
+        clean_name = "".join(c for c in group_name if c.isprintable())
+        print(f"{group_id:<45} {clean_name}")
 
     print()
     print("Copy the Group ID(s) you want and add them to WA_RECIPIENTS.")
