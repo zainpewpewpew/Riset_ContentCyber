@@ -9,6 +9,7 @@ from message_formatter import (
     format_no_news,
     format_error_report,
 )
+from poster_generator import generate_poster, cleanup_posters
 from state_manager import filter_new_articles, load_sent_articles, save_sent_articles
 from summarizer import summarize_article
 from whatsapp_sender import send_to_all_recipients, send_text_to_all
@@ -106,7 +107,24 @@ def main():
     if summarize_errors > 0:
         errors.append(f"Gagal summarize {summarize_errors} dari {len(new_articles)} artikel.")
 
-    # --- STEP 6: Format captions ---
+    # --- STEP 6: Generate posters ---
+    logger.info("Generating posters for %d articles...", len(new_articles))
+    poster_errors = 0
+    for article in new_articles:
+        try:
+            poster_path = generate_poster(article)
+            if poster_path:
+                article["poster_path"] = str(poster_path)
+            else:
+                poster_errors += 1
+        except Exception as e:
+            logger.error("Error generating poster for '%s': %s", article["title"][:50], e)
+            poster_errors += 1
+
+    if poster_errors > 0:
+        logger.warning("%d posters failed to generate", poster_errors)
+
+    # --- STEP 7: Format captions ---
     captions = []
     for article in new_articles:
         try:
@@ -124,7 +142,7 @@ def main():
 
     logger.info("Sending %d new articles to WhatsApp...", len(new_articles))
 
-    # --- STEP 7: Send batch summary ---
+    # --- STEP 8: Send batch summary ---
     if len(new_articles) > 1:
         try:
             summary = format_batch_summary(new_articles)
@@ -132,7 +150,7 @@ def main():
         except Exception as e:
             logger.error("Failed to send batch summary: %s", e)
 
-    # --- STEP 8: Send articles ---
+    # --- STEP 9: Send articles ---
     try:
         stats = send_to_all_recipients(new_articles, captions)
     except Exception as e:
@@ -140,7 +158,7 @@ def main():
         errors.append(f"Gagal mengirim artikel ke WhatsApp: {e}")
         stats = {"sent": 0, "failed": len(new_articles)}
 
-    # --- STEP 9: Save state ---
+    # --- STEP 10: Save state ---
     try:
         for article in new_articles:
             sent_urls.add(article["link"])
@@ -149,7 +167,13 @@ def main():
         logger.error("Failed to save sent articles state: %s", e)
         errors.append(f"Gagal menyimpan state: {e}")
 
-    # --- STEP 10: Send error report if any issues ---
+    # --- STEP 11: Cleanup poster files ---
+    try:
+        cleanup_posters()
+    except Exception as e:
+        logger.error("Failed to cleanup posters: %s", e)
+
+    # --- STEP 12: Send error report if any issues ---
     if errors:
         try:
             send_text_to_all(format_error_report(errors))

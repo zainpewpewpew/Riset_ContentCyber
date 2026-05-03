@@ -134,14 +134,55 @@ def send_text_message(
     return False
 
 
-def send_article(client: API.GreenAPI, chat_id: str, article: dict, caption: str) -> bool:
-    """Send an article to a single recipient (image+caption or text fallback)."""
-    thumbnail = article.get("thumbnail")
+def send_poster_message(
+    client: API.GreenAPI,
+    chat_id: str,
+    poster_path: str,
+    caption: str,
+) -> bool:
+    """Send a locally generated poster image with caption."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = client.sending.sendFileByUpload(
+                chat_id, poster_path, "cybersec_news.jpg", caption
+            )
+            if response.code == 200:
+                logger.info("Poster sent to %s", chat_id)
+                return True
+            else:
+                logger.error(
+                    "Failed to send poster to %s (attempt %d/%d): %s",
+                    chat_id, attempt, MAX_RETRIES, response.data,
+                )
+        except Exception as e:
+            logger.error(
+                "Error sending poster to %s (attempt %d/%d): %s",
+                chat_id, attempt, MAX_RETRIES, e,
+            )
 
+        if attempt < MAX_RETRIES:
+            logger.info("Retrying in %ds...", RETRY_DELAY_SECONDS)
+            time.sleep(RETRY_DELAY_SECONDS)
+
+    logger.warning("Poster send failed after %d attempts, falling back to text", MAX_RETRIES)
+    return send_text_message(client, chat_id, caption)
+
+
+def send_article(client: API.GreenAPI, chat_id: str, article: dict, caption: str) -> bool:
+    """Send an article to a single recipient.
+
+    Priority: poster (local file) > thumbnail URL > text only.
+    """
+    poster_path = article.get("poster_path")
+
+    if poster_path and os.path.exists(poster_path):
+        return send_poster_message(client, chat_id, str(poster_path), caption)
+
+    thumbnail = article.get("thumbnail")
     if thumbnail and _validate_image_url(thumbnail):
         return send_image_message(client, chat_id, thumbnail, caption)
-    else:
-        return send_text_message(client, chat_id, caption)
+
+    return send_text_message(client, chat_id, caption)
 
 
 def send_text_to_all(text: str) -> None:
