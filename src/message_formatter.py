@@ -11,6 +11,9 @@ def format_article(article: dict) -> str:
     """
     lines = []
 
+    lines.append("*[Yakes Telkom - Cyber Security Alert]*")
+    lines.append("")
+
     # Title (bold)
     lines.append(f"*{article['title']}*")
     lines.append("")
@@ -45,8 +48,8 @@ def format_batch_summary(articles: list[dict]) -> str:
     count = len(articles)
     sources = set(a["source"] for a in articles)
     return (
-        f"*Cyber Security News Update*\n\n"
-        f"Ditemukan *{count}* artikel baru dari "
+        f"*[Yakes Telkom - Cyber Security Update]*\n\n"
+        f"Ditemukan *{count}* berita cyber security terbaru dari "
         f"{', '.join(sources)}.\n\n"
-        f"Berikut detailnya:"
+        f"Berikut ringkasan yang relevan untuk Yakes Telkom:"
     )
