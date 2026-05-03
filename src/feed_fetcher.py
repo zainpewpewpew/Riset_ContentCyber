@@ -166,12 +166,29 @@ def fetch_all_feeds(config_path: Path = CONFIG_PATH) -> list[dict]:
     """Fetch all configured RSS feeds and return combined articles."""
     feeds_config = load_feeds_config(config_path)
     all_articles = []
+    seen_links = set()
+    failed_feeds = 0
 
     for feed_config in feeds_config:
         articles = fetch_feed(feed_config)
-        all_articles.extend(articles)
+        if not articles:
+            failed_feeds += 1
 
-    logger.info("Total articles fetched: %d", len(all_articles))
+        for article in articles:
+            link = article.get("link", "")
+            if link in seen_links:
+                logger.debug("Skipping duplicate article: %s", link[:80])
+                continue
+            seen_links.add(link)
+            all_articles.append(article)
+
+    if failed_feeds > 0:
+        logger.warning("%d out of %d feeds failed to fetch", failed_feeds, len(feeds_config))
+
+    logger.info(
+        "Total: %d unique articles from %d feeds (%d failed)",
+        len(all_articles), len(feeds_config), failed_feeds,
+    )
     return all_articles
 
 
