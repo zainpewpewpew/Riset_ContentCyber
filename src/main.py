@@ -1,0 +1,72 @@
+import logging
+import sys
+
+from feed_fetcher import fetch_all_feeds
+from message_formatter import format_article, format_batch_summary
+from state_manager import filter_new_articles, load_sent_articles, save_sent_articles
+from whatsapp_sender import send_to_all_recipients, send_text_to_all
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+MAX_ARTICLES_PER_RUN = 10
+
+
+def main():
+    logger.info("=== Cyber Security News Bot started ===")
+
+    # 1. Fetch all RSS feeds
+    all_articles = fetch_all_feeds()
+    if not all_articles:
+        logger.info("No articles fetched from any feed. Exiting.")
+        return
+
+    # 2. Filter out already-sent articles
+    sent_urls = load_sent_articles()
+    new_articles = filter_new_articles(all_articles, sent_urls)
+
+    if not new_articles:
+        logger.info("No new articles found. Exiting.")
+        return
+
+    # 3. Limit articles per run to avoid spam
+    if len(new_articles) > MAX_ARTICLES_PER_RUN:
+        logger.info(
+            "Limiting from %d to %d articles per run",
+            len(new_articles), MAX_ARTICLES_PER_RUN,
+        )
+        new_articles = new_articles[:MAX_ARTICLES_PER_RUN]
+
+    # 4. Format captions
+    captions = [format_article(article) for article in new_articles]
+
+    logger.info("Sending %d new articles to WhatsApp...", len(new_articles))
+
+    # 5. Send batch summary first (if multiple articles)
+    if len(new_articles) > 1:
+        summary = format_batch_summary(new_articles)
+        send_text_to_all(summary)
+
+    # 6. Send each article
+    stats = send_to_all_recipients(new_articles, captions)
+
+    # 7. Mark articles as sent (even if some sends failed, to avoid retry loops)
+    for article in new_articles:
+        sent_urls.add(article["link"])
+    save_sent_articles(sent_urls)
+
+    logger.info(
+        "=== Bot finished: %d sent, %d failed ===",
+        stats["sent"], stats["failed"],
+    )
+
+    if stats["failed"] > 0:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

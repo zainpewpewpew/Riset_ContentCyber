@@ -1,0 +1,6 @@
+feedparser
+whatsapp-api-client-python
+pyyaml
+python-dateutil
+beautifulsoup4
+requests

@@ -1,0 +1,18 @@
+feeds:
+  - name: "The Hacker News"
+    url: "https://feeds.feedburner.com/TheHackersNews"
+
+  - name: "BleepingComputer"
+    url: "https://www.bleepingcomputer.com/feed/"
+
+  - name: "Krebs on Security"
+    url: "https://krebsonsecurity.com/feed/"
+
+  - name: "Dark Reading"
+    url: "https://www.darkreading.com/rss.xml"
+
+  - name: "The CyberWire"
+    url: "https://thecyberwire.com/feeds/rss.xml"
+
+  - name: "CISA Alerts"
+    url: "https://www.cisa.gov/cybersecurity-advisories/all.xml"
