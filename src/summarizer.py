@@ -19,6 +19,7 @@ Konteks Yakes Telkom:
 - Menggunakan sistem informasi kesehatan dan infrastruktur IT
 
 Aturan:
+- WAJIB tulis ringkasan dalam Bahasa Indonesia, JANGAN gunakan Bahasa Inggris
 - Maksimal 4-5 kalimat
 - Gunakan bahasa yang sederhana, hindari jargon teknis
 - Jika ada istilah teknis, jelaskan singkat dalam kurung
