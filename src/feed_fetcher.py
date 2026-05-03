@@ -107,6 +107,21 @@ def _parse_date(entry) -> Optional[str]:
         return date_str
 
 
+def _parse_datetime(entry):
+    """Parse the published date as a timezone-aware datetime object."""
+    date_str = getattr(entry, "published", None) or getattr(entry, "updated", None)
+    if not date_str:
+        return None
+    try:
+        dt = date_parser.parse(date_str)
+        if dt.tzinfo is None:
+            from datetime import timezone
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
 def fetch_feed(feed_config: dict) -> list[dict]:
     """Fetch and parse a single RSS feed, returning structured articles."""
     name = feed_config["name"]
@@ -132,6 +147,7 @@ def fetch_feed(feed_config: dict) -> list[dict]:
                 "link": link.strip(),
                 "source": name,
                 "published": _parse_date(entry),
+                "published_dt": _parse_datetime(entry),
                 "summary": _extract_summary(entry),
                 "thumbnail": _extract_thumbnail(entry),
                 "tags": _extract_tags(entry),
@@ -157,3 +173,45 @@ def fetch_all_feeds(config_path: Path = CONFIG_PATH) -> list[dict]:
 
     logger.info("Total articles fetched: %d", len(all_articles))
     return all_articles
+
+
+def filter_by_date(articles: list[dict], fallback_days: int = 3) -> list[dict]:
+    """Filter articles: prefer today's articles, fallback to last N days.
+
+    1. First, try to get articles from today
+    2. If none found today, get articles from the last `fallback_days` days
+    3. Articles without a parseable date are always included
+    """
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    fallback_start = now - timedelta(days=fallback_days)
+
+    today_articles = []
+    recent_articles = []
+    no_date_articles = []
+
+    for article in articles:
+        dt = article.get("published_dt")
+        if dt is None:
+            no_date_articles.append(article)
+            continue
+
+        if dt >= today_start:
+            today_articles.append(article)
+        elif dt >= fallback_start:
+            recent_articles.append(article)
+
+    if today_articles:
+        result = today_articles + no_date_articles
+        logger.info("Found %d articles from today", len(today_articles))
+    else:
+        result = recent_articles + no_date_articles
+        logger.info(
+            "No articles from today, using %d articles from last %d days",
+            len(recent_articles), fallback_days,
+        )
+
+    result.sort(key=lambda a: a.get("published_dt") or now, reverse=True)
+    return result

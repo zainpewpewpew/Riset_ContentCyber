@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from feed_fetcher import fetch_all_feeds
+from feed_fetcher import fetch_all_feeds, filter_by_date
 from message_formatter import format_article, format_batch_summary
 from state_manager import filter_new_articles, load_sent_articles, save_sent_articles
 from summarizer import summarize_article
@@ -26,7 +26,13 @@ def main():
         logger.info("No articles fetched from any feed. Exiting.")
         return
 
-    # 2. Filter out already-sent articles
+    # 2. Filter by date: today's articles, or last 3 days if none today
+    all_articles = filter_by_date(all_articles, fallback_days=3)
+    if not all_articles:
+        logger.info("No recent articles found. Exiting.")
+        return
+
+    # 3. Filter out already-sent articles
     sent_urls = load_sent_articles()
     new_articles = filter_new_articles(all_articles, sent_urls)
 
@@ -34,7 +40,7 @@ def main():
         logger.info("No new articles found. Exiting.")
         return
 
-    # 3. Limit articles per run to avoid spam
+    # 4. Limit articles per run to avoid spam
     if len(new_articles) > MAX_ARTICLES_PER_RUN:
         logger.info(
             "Limiting from %d to %d articles per run",
@@ -42,7 +48,7 @@ def main():
         )
         new_articles = new_articles[:MAX_ARTICLES_PER_RUN]
 
-    # 4. Summarize articles with AI
+    # 5. Summarize articles with AI
     logger.info("Summarizing %d articles with ChatGPT...", len(new_articles))
     for article in new_articles:
         ai_summary = summarize_article(
@@ -52,20 +58,20 @@ def main():
         )
         article["summary"] = ai_summary
 
-    # 5. Format captions
+    # 6. Format captions
     captions = [format_article(article) for article in new_articles]
 
     logger.info("Sending %d new articles to WhatsApp...", len(new_articles))
 
-    # 6. Send batch summary first (if multiple articles)
+    # 7. Send batch summary first (if multiple articles)
     if len(new_articles) > 1:
         summary = format_batch_summary(new_articles)
         send_text_to_all(summary)
 
-    # 7. Send each article
+    # 8. Send each article
     stats = send_to_all_recipients(new_articles, captions)
 
-    # 8. Mark articles as sent (even if some sends failed, to avoid retry loops)
+    # 9. Mark articles as sent (even if some sends failed, to avoid retry loops)
     for article in new_articles:
         sent_urls.add(article["link"])
     save_sent_articles(sent_urls)
