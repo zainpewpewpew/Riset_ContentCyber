@@ -20,19 +20,24 @@ Aturan:
 
 
 def _get_api_keys() -> list[str]:
-    """Collect all available API keys from environment variables.
+    """Collect all available API keys.
 
-    Reads OPENAI_API_KEY, OPENAI_API_KEY_2, OPENAI_API_KEY_3, etc.
+    Supports two formats:
+    1. Multiple keys in OPENAI_API_KEY (one per line)
+    2. Additional keys in OPENAI_API_KEY_2, OPENAI_API_KEY_3, etc.
     """
     keys = []
 
     primary = os.environ.get("OPENAI_API_KEY", "").strip()
     if primary:
-        keys.append(primary)
+        for line in primary.splitlines():
+            key = line.strip()
+            if key and key.startswith("sk-"):
+                keys.append(key)
 
     for i in range(2, 10):
         key = os.environ.get(f"OPENAI_API_KEY_{i}", "").strip()
-        if key:
+        if key and key.startswith("sk-"):
             keys.append(key)
 
     return keys
