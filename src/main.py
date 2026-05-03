@@ -2,7 +2,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 
-from feed_fetcher import fetch_all_feeds, filter_by_date
+from feed_fetcher import fetch_all_feeds, filter_by_date, filter_by_topic
 from message_formatter import (
     format_article,
     format_batch_summary,
@@ -49,6 +49,14 @@ def main():
         except Exception as e:
             logger.error("Error filtering by date: %s", e)
             errors.append(f"Gagal filter artikel berdasarkan tanggal: {e}")
+
+    # --- STEP 2b: Filter by topic (vulnerability/server/website) ---
+    if all_articles:
+        try:
+            all_articles = filter_by_topic(all_articles)
+        except Exception as e:
+            logger.error("Error filtering by topic: %s", e)
+            errors.append(f"Gagal filter artikel berdasarkan topik: {e}")
 
     # --- STEP 3: Filter already-sent articles ---
     try:

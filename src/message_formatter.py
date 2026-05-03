@@ -28,7 +28,7 @@ def format_article(article: dict) -> str:
     """Format a single article into a WhatsApp message caption."""
     lines = []
 
-    lines.append("*[Yakes Telkom - Cyber Security Alert]*")
+    lines.append("*[Yakes Telkom - Vulnerability Alert]*")
     lines.append("")
 
     title = _safe_str(article.get("title"), "Judul tidak tersedia")
@@ -87,10 +87,10 @@ def format_no_news() -> str:
     return (
         f"*[Yakes Telkom - Cyber Security Update]*\n\n"
         f"_Tanggal:_ {today}\n\n"
-        f"Tidak ditemukan berita cyber security baru dalam 7 hari terakhir.\n\n"
-        f"Ini bisa berarti situasi keamanan siber relatif stabil. "
-        f"Namun tetap waspada dan pastikan sistem Yakes Telkom selalu "
-        f"ter-update dengan patch keamanan terbaru."
+        f"Tidak ditemukan berita vulnerability website/server baru dalam 7 hari terakhir.\n\n"
+        f"Ini bisa berarti tidak ada kerentanan kritis baru yang terdeteksi. "
+        f"Namun tetap waspada dan pastikan semua website, server, dan aplikasi web "
+        f"Yakes Telkom selalu ter-update dengan patch keamanan terbaru."
     )
 
 

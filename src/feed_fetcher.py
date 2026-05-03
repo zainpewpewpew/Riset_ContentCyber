@@ -192,6 +192,52 @@ def fetch_all_feeds(config_path: Path = CONFIG_PATH) -> list[dict]:
     return all_articles
 
 
+VULNERABILITY_KEYWORDS = [
+    "vulnerability", "vulnerabilities", "cve-", "cve ", "exploit",
+    "rce", "remote code execution", "sql injection", "xss",
+    "cross-site", "zero-day", "0-day", "zero day",
+    "patch", "patched", "security update", "security flaw",
+    "critical flaw", "critical bug", "security hole",
+    "buffer overflow", "privilege escalation", "authentication bypass",
+    "ssrf", "csrf", "lfi", "rfi", "directory traversal",
+    "path traversal", "injection", "deserialization",
+    "server", "apache", "nginx", "iis", "tomcat",
+    "wordpress", "drupal", "joomla", "cms",
+    "web application", "web app", "webapp", "website",
+    "api", "endpoint", "http", "https",
+    "dns", "ssl", "tls", "certificate",
+    "firewall", "waf", "ddos", "dos",
+    "misconfiguration", "exposed", "leak", "breach",
+    "backdoor", "webshell", "web shell", "malware",
+    "ransomware", "phishing", "credential",
+    "database", "mysql", "postgresql", "mongodb",
+    "cloud", "aws", "azure", "gcp",
+    "docker", "kubernetes", "container",
+    "cisa", "advisory", "advisories",
+]
+
+
+def filter_by_topic(articles: list[dict]) -> list[dict]:
+    """Filter articles related to website/server vulnerabilities."""
+    result = []
+
+    for article in articles:
+        searchable = " ".join([
+            article.get("title", ""),
+            article.get("summary", ""),
+            " ".join(article.get("tags", [])),
+        ]).lower()
+
+        if any(kw in searchable for kw in VULNERABILITY_KEYWORDS):
+            result.append(article)
+
+    logger.info(
+        "Topic filter: %d vulnerability-related articles (from %d total)",
+        len(result), len(articles),
+    )
+    return result
+
+
 def filter_by_date(articles: list[dict], max_days: int = 7) -> list[dict]:
     """Filter articles from the last `max_days` days (default: 1 week).
 
