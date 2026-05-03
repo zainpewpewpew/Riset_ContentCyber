@@ -28,7 +28,7 @@ def format_article(article: dict) -> str:
     """Format a single article into a WhatsApp message caption."""
     lines = []
 
-    lines.append("*[Yakes Telkom - Vulnerability Alert]*")
+    lines.append("*[CyberSecurity Terbaru]*")
     lines.append("")
 
     title = _safe_str(article.get("title"), "Judul tidak tersedia")
@@ -73,10 +73,10 @@ def format_batch_summary(articles: list[dict]) -> str:
     sources_str = ", ".join(sources) if sources else "berbagai sumber"
 
     return (
-        f"*[Yakes Telkom - Cyber Security Update]*\n\n"
+        f"*[CyberSecurity Terbaru]*\n\n"
         f"Ditemukan *{count}* berita cyber security terbaru dari "
         f"{sources_str}.\n\n"
-        f"Berikut ringkasan yang relevan untuk Yakes Telkom:"
+        f"Berikut ringkasannya:"
     )
 
 
@@ -85,12 +85,12 @@ def format_no_news() -> str:
     today = datetime.now(timezone.utc).strftime("%d %B %Y")
 
     return (
-        f"*[Yakes Telkom - Cyber Security Update]*\n\n"
+        f"*[CyberSecurity Terbaru]*\n\n"
         f"_Tanggal:_ {today}\n\n"
         f"Tidak ditemukan berita vulnerability website/server baru dalam 7 hari terakhir.\n\n"
         f"Ini bisa berarti tidak ada kerentanan kritis baru yang terdeteksi. "
         f"Namun tetap waspada dan pastikan semua website, server, dan aplikasi web "
-        f"Yakes Telkom selalu ter-update dengan patch keamanan terbaru."
+        f"selalu ter-update dengan patch keamanan terbaru."
     )
 
 
@@ -99,7 +99,7 @@ def format_error_report(errors: list[str]) -> str:
     today = datetime.now(timezone.utc).strftime("%d %B %Y, %H:%M UTC")
 
     lines = [
-        "*[Yakes Telkom - Bot Status Report]*",
+        "*[CyberSecurity Terbaru - Bot Status Report]*",
         "",
         f"_Tanggal:_ {today}",
         "",

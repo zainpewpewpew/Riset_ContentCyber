@@ -216,9 +216,19 @@ VULNERABILITY_KEYWORDS = [
     "cisa", "advisory", "advisories",
 ]
 
+EXCLUDE_KEYWORDS = [
+    "crypto", "cryptocurrency", "bitcoin", "btc", "ethereum", "eth",
+    "blockchain", "defi", "nft", "token", "wallet",
+    "coinbase", "binance", "kraken", "ledger",
+    "mining", "cryptojacking", "cryptominer",
+    "dprk crypto", "crypto exchange", "crypto fraud",
+    "crypto scam", "crypto theft", "crypto hack",
+    "stablecoin", "altcoin", "memecoin",
+]
+
 
 def filter_by_topic(articles: list[dict]) -> list[dict]:
-    """Filter articles related to website/server vulnerabilities."""
+    """Filter articles related to website/server vulnerabilities, excluding crypto."""
     result = []
 
     for article in articles:
@@ -227,6 +237,10 @@ def filter_by_topic(articles: list[dict]) -> list[dict]:
             article.get("summary", ""),
             " ".join(article.get("tags", [])),
         ]).lower()
+
+        if any(ex in searchable for ex in EXCLUDE_KEYWORDS):
+            logger.debug("Excluded (crypto): %s", article.get("title", "")[:80])
+            continue
 
         if any(kw in searchable for kw in VULNERABILITY_KEYWORDS):
             result.append(article)
